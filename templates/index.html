@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Predictor de Cultivos</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      margin: 0;
+      padding: 0;
+      background-color: #f4f4f4;
+    }
+    h1 {
+      margin-top: 50px;
+      color: #333;
+    }
+    button {
+      margin: 20px;
+      padding: 15px 30px;
+      font-size: 16px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+    }
+    #cameraContainer {
+      display: none;
+      margin: 20px auto;
+    }
+    video, canvas {
+      display: block;
+      margin: 0 auto;
+    }
+    input[type="file"] {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>Predictor de Cultivos</h1>
+  <label>
+    <input type="file" id="uploadImage" accept="image/*">
+    <button id="uploadButton">Subir Imagen</button>
+  </label>
+  <button id="cameraButton">Usar Cámara Web</button>
+  <div id="cameraContainer">
+    <video id="video" width="400" autoplay></video>
+    <button id="captureButton">Capturar Imagen</button>
+    <canvas id="canvas" width="400" height="300"></canvas>
+  </div>
+  <p id="result"></p>
+
+  <script>
+    const uploadImage = document.getElementById("uploadImage");
+    const uploadButton = document.getElementById("uploadButton");
+    const cameraButton = document.getElementById("cameraButton");
+    const cameraContainer = document.getElementById("cameraContainer");
+    const video = document.getElementById("video");
+    const captureButton = document.getElementById("captureButton");
+    const canvas = document.getElementById("canvas");
+    const result = document.getElementById("result");
+
+    uploadButton.addEventListener("click", () => {
+      uploadImage.click();
+    });
+
+    uploadImage.addEventListener("change", async () => {
+      const file = uploadImage.files[0];
+      if (!file) return;
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      try {
+        const response = await fetch("/predict", {
+          method: "POST",
+          body: formData,
+        });
+        const data = await response.json();
+        result.textContent = `Predicción: ${data.prediction} (Confianza: ${(data.confidence * 100).toFixed(2)}%)`;
+      } catch (error) {
+        result.textContent = "Error al realizar la predicción.";
+      }
+    });
+
+    cameraButton.addEventListener("click", () => {
+      cameraContainer.style.display = "block";
+      navigator.mediaDevices.getUserMedia({ video: true })
+        .then((stream) => {
+          video.srcObject = stream;
+        })
+        .catch((error) => {
+          console.error("No se puede acceder a la cámara", error);
+        });
+    });
+
+    captureButton.addEventListener("click", async () => {
+      const context = canvas.getContext("2d");
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      // Convertir la imagen del canvas a un blob
+      canvas.toBlob(async (blob) => {
+        const formData = new FormData();
+        formData.append("file", blob, "captured_image.jpg");
+
+        try {
+          const response = await fetch("/predict", {
+            method: "POST",
+            body: formData,
+          });
+          const data = await response.json();
+          result.textContent = `Predicción: ${data.prediction} (Confianza: ${(data.confidence * 100).toFixed(2)}%)`;
+        } catch (error) {
+          result.textContent = "Error al realizar la predicción.";
+        }
+      }, "image/jpeg");
+    });
+  </script>
+</body>
+</html>
